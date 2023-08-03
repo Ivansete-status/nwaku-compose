@@ -38,6 +38,7 @@ services:
     volumes:
       - ./data:/data:Z
       - ./run_store_node.sh:/opt/run_store_node.sh:Z
+      - ./.env:/opt/.env:Z
     entrypoint: sh
     command:
       - /opt/run_store_node.sh
@@ -86,8 +87,10 @@ services:
     # and the store-message-db-url is set to use Postgres
     image: postgres:9.6-alpine
     restart: on-failure
+    env_file:
+      - .env
     environment:
-      POSTGRES_PASSWORD: test123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "127.0.0.1:5432:5432"
     network_mode: host
@@ -103,7 +106,9 @@ services:
     restart: on-failure
     command:
       - --config.file=/etc/postgres-exporter.yml
+    env_file:
+      - .env
     environment:
-      - DATA_SOURCE_NAME=postgres://postgres:test123@host.docker.internal:5432/postgres?sslmode=disable
+      - DATA_SOURCE_NAME=postgres://postgres:${POSTGRES_PASSWORD}@host.docker.internal:5432/postgres?sslmode=disable
     depends_on:
       - postgres

@@ -2,6 +2,10 @@
 
 echo "I am a nwaku node"
 
+source /opt/.env
+
+echo "AAAA ${POSTGRES_PASSWORD}"
+
 MY_EXT_IP=$(wget -qO- https://api4.ipify.org)
 
 exec /usr/bin/wakunode\
@@ -27,5 +31,5 @@ exec /usr/bin/wakunode\
   --metrics-server-address=0.0.0.0\
   --nat=extip:"${MY_EXT_IP}"\
   --store=true\
-  --store-message-db-url="postgres://postgres:test123@host.docker.internal:5432/postgres"\
+  --store-message-db-url="postgres://postgres:${POSTGRES_PASSWORD}@host.docker.internal:5432/postgres"\
   --store-message-retention-policy=time:86400
