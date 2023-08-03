@@ -4,8 +4,6 @@ echo "I am a nwaku node"
 
 source /opt/.env
 
-echo "AAAA ${POSTGRES_PASSWORD}"
-
 MY_EXT_IP=$(wget -qO- https://api4.ipify.org)
 
 exec /usr/bin/wakunode\
