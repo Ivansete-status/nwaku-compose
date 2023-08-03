@@ -1,0 +1,109 @@
+version: "3.7"
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 1000m
+services:
+  nwaku:
+    # Provide the image using any of these methods
+
+    # Method 1. Custom build
+    # For a custom build, requires building your image
+    # from nwaku repo: docker build -t nwaku:mytag .
+    #image: nwaku:mytag
+
+    # Method 2. Pre-built image (master commit)
+    # For a pre-built image, use the firt 8 digits of the commit hash
+    # all commits in nwaku master al built and pushed to dockerhub
+    # See: hub.docker.com/r/statusteam/nim-waku
+    #image: statusteam/nim-waku:982cd282
+
+    # Method 3. Pre-built release
+    # For a pre-built release. See available releases:
+    # github.com/waku-org/nwaku/releases
+
+    extra_hosts:
+      # This is to make the postgres database accessible from the nwaku container
+      - "host.docker.internal:host-gateway"
+    network_mode: host
+    image: statusteam/nim-waku:v0.19.0-rc.0
+    restart: on-failure
+    ports:
+      - 30304:30304/tcp
+      - 30304:30304/udp
+      - 8545:8545/tcp
+      - 9005:9005/udp
+      - 127.0.0.1:8003:8003
+    volumes:
+      - ./data:/data:Z
+      - ./run_store_node.sh:/opt/run_store_node.sh:Z
+    entrypoint: sh
+    command:
+      - /opt/run_store_node.sh
+    depends_on:
+      - postgres
+
+  prometheus:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    network_mode: host
+    image: docker.io/prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:Z
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - 127.0.0.1:9090:9090
+    restart: on-failure
+    depends_on:
+      - postgres-exporter
+      - nwaku
+
+  grafana:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    network_mode: host
+    image: docker.io/grafana/grafana:latest
+    env_file:
+      - ./monitoring/configuration/grafana-plugins.env
+    volumes:
+      - ./monitoring/configuration/grafana.ini:/etc/grafana/grafana.ini:Z
+      - ./monitoring/configuration/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:Z
+      - ./monitoring/configuration/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:Z
+      - ./monitoring/configuration/dashboards:/var/lib/grafana/dashboards/:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_icon.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_typelogo.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.png:/usr/share/grafana/public/img/fav32.png:Z
+    ports:
+      - 127.0.0.1:3000:3000
+    restart: on-failure
+    depends_on:
+      - prometheus
+
+  postgres:
+    # This service is used when the Waku node has the 'store' protocol enabled
+    # and the store-message-db-url is set to use Postgres
+    image: postgres:9.6-alpine
+    restart: on-failure
+    environment:
+      POSTGRES_PASSWORD: test123
+    ports:
+      - "127.0.0.1:5432:5432"
+    network_mode: host
+
+  postgres-exporter:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    network_mode: host
+    # Service aimed to scrape information from Postgres and post it to Prometeus
+    image: quay.io/prometheuscommunity/postgres-exporter:latest
+    volumes:
+      - ./monitoring/configuration/postgres-exporter.yml:/etc/postgres-exporter.yml:Z
+    restart: on-failure
+    command:
+      - --config.file=/etc/postgres-exporter.yml
+    environment:
+      - DATA_SOURCE_NAME=postgres://postgres:test123@host.docker.internal:5432/postgres?sslmode=disable
+    depends_on:
+      - postgres

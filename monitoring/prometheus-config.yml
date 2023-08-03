@@ -7,4 +7,8 @@ global:
 scrape_configs:
   - job_name: "nwaku"
     static_configs:
-    - targets: ["nwaku:8003"]
+    - targets: ["127.0.0.1:8003"]
+
+  - job_name: postgres
+    static_configs:
+    - targets: ['127.0.0.1:9187']
