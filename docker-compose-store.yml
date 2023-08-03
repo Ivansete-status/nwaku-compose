@@ -85,7 +85,7 @@ services:
   postgres:
     # This service is used when the Waku node has the 'store' protocol enabled
     # and the store-message-db-url is set to use Postgres
-    image: postgres:9.6-alpine
+    image: postgres:alpine3.18
     restart: on-failure
     env_file:
       - .env
@@ -93,6 +93,12 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
       - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
     network_mode: host
 
   postgres-exporter:
@@ -101,11 +107,7 @@ services:
     network_mode: host
     # Service aimed to scrape information from Postgres and post it to Prometeus
     image: quay.io/prometheuscommunity/postgres-exporter:latest
-    volumes:
-      - ./monitoring/configuration/postgres-exporter.yml:/etc/postgres-exporter.yml:Z
     restart: on-failure
-    command:
-      - --config.file=/etc/postgres-exporter.yml
     env_file:
       - .env
     environment:
