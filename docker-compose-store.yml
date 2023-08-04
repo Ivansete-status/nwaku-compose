@@ -4,6 +4,7 @@ x-logging: &logging
     driver: json-file
     options:
       max-size: 1000m
+
 services:
   nwaku:
     # Provide the image using any of these methods
@@ -23,10 +24,6 @@ services:
     # For a pre-built release. See available releases:
     # github.com/waku-org/nwaku/releases
 
-    extra_hosts:
-      # This is to make the postgres database accessible from the nwaku container
-      - "host.docker.internal:host-gateway"
-    network_mode: host
     image: statusteam/nim-waku:v0.19.0-rc.0
     restart: on-failure
     ports:
@@ -34,7 +31,7 @@ services:
       - 30304:30304/udp
       - 8545:8545/tcp
       - 9005:9005/udp
-      - 127.0.0.1:8003:8003
+      - 8003:8003
     volumes:
       - ./data:/data:Z
       - ./run_store_node.sh:/opt/run_store_node.sh:Z
@@ -46,25 +43,19 @@ services:
       - postgres
 
   prometheus:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    network_mode: host
     image: docker.io/prom/prometheus:latest
     volumes:
       - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:Z
     command:
       - --config.file=/etc/prometheus/prometheus.yml
     ports:
-      - 127.0.0.1:9090:9090
+      - 9090:9090
     restart: on-failure
     depends_on:
       - postgres-exporter
       - nwaku
 
   grafana:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    network_mode: host
     image: docker.io/grafana/grafana:latest
     env_file:
       - ./monitoring/configuration/grafana-plugins.env
@@ -77,7 +68,7 @@ services:
       - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_typelogo.svg:Z
       - ./monitoring/configuration/customizations/custom-logo.png:/usr/share/grafana/public/img/fav32.png:Z
     ports:
-      - 127.0.0.1:3000:3000
+      - 3000:3000
     restart: on-failure
     depends_on:
       - prometheus
@@ -92,25 +83,21 @@ services:
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "127.0.0.1:5432:5432"
+      - 5432:5432
     healthcheck:
       test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
       interval: 30s
       timeout: 60s
       retries: 5
       start_period: 80s
-    network_mode: host
 
   postgres-exporter:
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    network_mode: host
     # Service aimed to scrape information from Postgres and post it to Prometeus
     image: quay.io/prometheuscommunity/postgres-exporter:latest
     restart: on-failure
     env_file:
       - .env
     environment:
-      - DATA_SOURCE_NAME=postgres://postgres:${POSTGRES_PASSWORD}@host.docker.internal:5432/postgres?sslmode=disable
+      - DATA_SOURCE_NAME=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres?sslmode=disable
     depends_on:
       - postgres
