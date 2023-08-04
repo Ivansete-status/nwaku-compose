@@ -95,8 +95,15 @@ services:
     # Service aimed to scrape information from Postgres and post it to Prometeus
     image: quay.io/prometheuscommunity/postgres-exporter:latest
     restart: on-failure
+    volumes:
+      - ./monitoring/configuration/postgres-exporter.yml:/etc/postgres-exporter.yml
     env_file:
       - .env
+    ports:
+      - 9187:9187
+    command:
+      # Both the config file and 'DATA_SOURCE_NAME' should contain valid connection info
+      - --config.file=/etc/postgres-exporter.yml
     environment:
       - DATA_SOURCE_NAME=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres?sslmode=disable
     depends_on:
