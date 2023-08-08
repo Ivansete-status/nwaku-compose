@@ -4,6 +4,7 @@ x-logging: &logging
     driver: json-file
     options:
       max-size: 1000m
+
 services:
   nwaku:
     # Provide the image using any of these methods
@@ -22,48 +23,25 @@ services:
     # Method 3. Pre-built release
     # For a pre-built release. See available releases:
     # github.com/waku-org/nwaku/releases
-    image: statusteam/nim-waku:v0.17.0
+
+    image: statusteam/nim-waku:v0.19.0-rc.0
     restart: on-failure
-    volumes:
-      - ./data:/data:Z
     ports:
       - 30304:30304/tcp
       - 30304:30304/udp
+      - 127.0.0.1:8545:8545/tcp
       - 9005:9005/udp
       - 127.0.0.1:8003:8003
     <<: *logging
+    volumes:
+      - ./data:/data:Z
+      - ./run_node.sh:/opt/run_node.sh:Z
+      - ./.env:/opt/.env:Z
+    entrypoint: sh
     command:
-      - --relay=true
-      # Select the topics to subscribe to. If empty default is selected
-      - --topics=/waku/2/dev-waku/proto
-      - --filter=true
-      - --lightpush=true
-      - --store=true
-      - --rpc-admin=true
-      - --keep-alive=true
-      - --max-connections=150
-      - --dns-discovery=true
-      # Pick one
-      - --dns-discovery-url=enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im
-      #- --dns-discovery-url=enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im
-      #- --dns-discovery-url=enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.nodes.status.im
-      #- --dns-discovery-url=enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.nodes.status.im
-      - --discv5-discovery=true
-      - --discv5-udp-port=9005
-      - --discv5-enr-auto-update=True
-      - --log-level=DEBUG
-      - --rpc-port=8545
-      - --rpc-address=0.0.0.0
-      - --tcp-port=30304
-      - --metrics-server=True
-      - --metrics-server-port=8003
-      - --metrics-server-address=0.0.0.0
-      - --nat=extip:${MY_EXT_IP}
-      #- --storenode=/dns4/node-01.do-ams3.wakuv2.prod.statusim.net/tcp/30303/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e
-      #- --peer-exchange-node=/dns4/node-01.do-ams3.wakuv2.prod.statusim.net/tcp/30303/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e
-      #- --peer-exchange-node=/dns4/node-01.do-ams3.wakuv2.prod.statusim.net/tcp/30304/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e
-      #- --store-message-db-url='sqlite:///data/store.sqlite3'
-      #- --store-message-retention-policy=time:2592000
+      - /opt/run_node.sh
+    depends_on:
+      - postgres
 
   prometheus:
     image: docker.io/prom/prometheus:latest
@@ -74,6 +52,9 @@ services:
     ports:
       - 127.0.0.1:9090:9090
     restart: on-failure
+    depends_on:
+      - postgres-exporter
+      - nwaku
 
   grafana:
     image: docker.io/grafana/grafana:latest
@@ -92,3 +73,41 @@ services:
     restart: on-failure
     depends_on:
       - prometheus
+
+  postgres:
+    # This service is used when the Waku node has the 'store' protocol enabled
+    # and the store-message-db-url is set to use Postgres
+    image: postgres:alpine3.18
+    restart: on-failure
+    env_file:
+      - .env
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - 127.0.0.1:5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
+
+  postgres-exporter:
+    # Service aimed to scrape information from Postgres and post it to Prometeus
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.12.0
+    restart: on-failure
+    volumes:
+      - ./monitoring/configuration/postgres-exporter.yml:/etc/pgexporter/postgres-exporter.yml
+      - ./monitoring/configuration/pg-exporter-queries.yml:/etc/pgexporter/queries.yml
+    env_file:
+      - .env
+    ports:
+      - 127.0.0.1:9187:9187
+    command:
+      # Both the config file and 'DATA_SOURCE_NAME' should contain valid connection info
+      - --config.file=/etc/pgexporter/postgres-exporter.yml
+    environment:
+      - DATA_SOURCE_NAME=postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres?sslmode=disable
+      - PG_EXPORTER_EXTEND_QUERY_PATH=/etc/pgexporter/queries.yml
+    depends_on:
+      - postgres

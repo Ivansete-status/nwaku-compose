@@ -1,6 +1,6 @@
 # nwaku-compose
 
-Ready to use docker-compose that runs a [nwaku](https://github.com/waku-org/nwaku) node and monitors it with already set up and configured grafana and prometheus instances. All in just 3 commands.
+Ready to use docker-compose that runs a [nwaku](https://github.com/waku-org/nwaku) node and monitors it with already set up and configured postgres, grafana and prometheus instances. All in just a few steps.
 
 ## Instructions
 
@@ -13,13 +13,9 @@ git clone https://github.com/alrevuelta/nwaku-compose.git
 cd nwaku-compose
 ```
 
-Get your public IP and store it to be used by docker-compose. Note that if you are behind a NAT you should configure it properly.
+Edit the environment variables in the `.env` file.
 
-```console
-export MY_EXT_IP=$(dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | awk -F'"' '{ print $2}')
-```
-
-Start everything: `nwaku`, `prometheus` and `grafana`.
+Start everything: `nwaku`, `postgres`, `prometheus`, and `grafana`.
 ```console
 docker-compose up -d
 ```
