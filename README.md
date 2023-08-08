@@ -13,7 +13,7 @@ git clone https://github.com/alrevuelta/nwaku-compose.git
 cd nwaku-compose
 ```
 
-Edit the environment variables in the `.env` file.
+Edit the environment variables present at the beginning of the `docker-compose.yml` file.
 
 Start everything: `nwaku`, `postgres`, `prometheus`, and `grafana`.
 ```console
