@@ -2,8 +2,6 @@
 
 echo "I am a nwaku node"
 
-source /opt/.env
-
 MY_EXT_IP=$(wget -qO- https://api4.ipify.org)
 
 exec /usr/bin/wakunode\
@@ -29,5 +27,5 @@ exec /usr/bin/wakunode\
   --metrics-server-address=0.0.0.0\
   --nat=extip:"${MY_EXT_IP}"\
   --store=true\
-  --store-message-db-url="postgres://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres"\
+  --store-message-db-url="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/postgres"\
   --store-message-retention-policy=time:86400
